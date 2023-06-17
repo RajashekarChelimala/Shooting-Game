@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Alien Invaders</title>
+  <style>
+    body {
+      background-color: #222222;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 50px;
+    }
+
+    canvas {
+      border: 2px solid #ffffff;
+      display: block;
+      margin: 20px auto;
+    }
+
+    .game-container {
+      margin-top: 50px;
+    }
+
+    label {
+      font-size: 20px;
+    }
+
+    input {
+      font-size: 20px;
+      padding: 5px;
+      margin-bottom: 10px;
+    }
+
+    #start-button, #play-again-button {
+      font-size: 20px;
+      padding: 10px 20px;
+      margin: 10px;
+      background-color: #00ff00;
+      border: none;
+      color: #000000;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    #score {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    #game-over {
+      font-size: 30px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Alien Invaders</h1>
+  <div id="game-container" class="game-container">
+    <label for="name-input">Name: </label>
+    <input type="text" id="name-input">
+    <br>
+    <label for="age-input">Age: </label>
+    <input type="text" id="age-input">
+    <br>
+    <button id="start-button">Start Game</button>
+  </div>
+  <canvas id="game-canvas"></canvas>
+  <div id="game-over" style="display: none;"></div>
+  <button id="play-again-button" style="display: none;">Play Again</button>
+  
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+    $(document).ready(function() {
+      // Game variables
+      var canvas = document.getElementById("game-canvas");
+      var context = canvas.getContext("2d");
+      var windowWidth = 800;
+      var windowHeight = 600;
+      var shipWidth = 50;
+      var shipHeight = 50;
+      var shipX = windowWidth / 2 - shipWidth / 2;
+      var shipY = windowHeight - shipHeight - 10;
+      var shipSpeed = 5;
+      var bulletWidth = 5;
+      var bulletHeight = 10;
+      var bulletColor = "#ff0000";
+      var bulletSpeed = 10;
+      var bulletState = "ready"; // ready - ready to fire, fire - bullet is moving
+      var alienWidth = 50;
+      var alienHeight = 50;
+      var alienSpeed = 2;
+      var score = 0;
+      var gameInterval;
+      var aliens = [];
+
+      // Handle start game button click
+      $("#start-button").on("click", function() {
+        var playerName = $("#name-input").val();
+        var playerAge = $("#age-input").val();
+        setupGame(playerName, playerAge);
+      });
+
+      // Handle play again button click
+      $("#play-again-button").on("click", function() {
+        $("#game-over").hide();
+        $("#play-again-button").hide();
+        resetGame();
+      });
+
+      // Set up the game
+      function setupGame(playerName, playerAge) {
+        $("#game-container").hide();
+        $("#game-over").hide();
+        $("#play-again-button").hide();
+
+        // Initialize canvas
+        canvas.width = windowWidth;
+        canvas.height = windowHeight;
+
+        // Reset variables
+        score = 0;
+        shipX = windowWidth / 2 - shipWidth / 2;
+        bulletState = "ready";
+
+        // Set up aliens
+        var minAliens = 3;
+        var maxAliens = 6;
+        var numAliens = Math.floor(Math.random() * (maxAliens - minAliens + 1)) + minAliens;
+        for (var i = 0; i < numAliens; i++) {
+          aliens.push({
+            x: Math.random() * (windowWidth - alienWidth),
+            y: Math.random() * (windowHeight / 2 - alienHeight)
+          });
+        }
+
+        // Start the game
+        startGame(playerName, playerAge);
+      }
+
+      // Start the game
+      function startGame(playerName, playerAge) {
+        drawGame();
+
+        // Update game state
+        gameInterval = setInterval(function() {
+          updateGameState();
+          drawGame();
+        }, 20);
+
+        // Event listeners
+        $(document).on("keydown", handleKeyDown);
+        $(document).on("keyup", handleKeyUp);
+      }
+
+      // Update game state
+      function updateGameState() {
+        // Move ship
+        if (shipLeft && shipX > 0) {
+          shipX -= shipSpeed;
+        }
+        if (shipRight && shipX < windowWidth - shipWidth) {
+          shipX += shipSpeed;
+        }
+
+        // Move bullet
+        if (bulletState === "fire" && bulletY > 0) {
+          bulletY -= bulletSpeed;
+        } else {
+          bulletState = "ready";
+        }
+
+        // Move aliens
+        for (var i = 0; i < aliens.length; i++) {
+          // Move aliens towards the ship
+          if (aliens[i].y < shipY) {
+            aliens[i].y += alienSpeed;
+          }
+
+          // Check collision with ship
+          if (
+            aliens[i].y + alienHeight > shipY &&
+            aliens[i].y < shipY + shipHeight &&
+            aliens[i].x + alienWidth > shipX &&
+            aliens[i].x < shipX + shipWidth
+          ) {
+            endGame();
+            return;
+          }
+
+          // Check collision with bullet
+          if (
+            bulletState === "fire" &&
+            bulletY < aliens[i].y + alienHeight &&
+            bulletY + bulletHeight > aliens[i].y &&
+            bulletX + bulletWidth > aliens[i].x &&
+            bulletX < aliens[i].x + alienWidth
+          ) {
+            aliens.splice(i, 1);
+            bulletState = "ready";
+            score += 10;
+            break;
+          }
+        }
+
+        // Check if all aliens are gone
+        if (aliens.length === 0) {
+          endGame();
+        }
+      }
+
+      // Draw game
+      function drawGame() {
+        // Clear canvas
+        context.clearRect(0, 0, windowWidth, windowHeight);
+
+        // Draw ship
+        context.fillStyle = "#00ff00";
+        context.fillRect(shipX, shipY, shipWidth, shipHeight);
+
+        // Draw bullet
+        if (bulletState === "fire") {
+          context.fillStyle = bulletColor;
+          context.fillRect(bulletX, bulletY, bulletWidth, bulletHeight);
+        }
+
+        // Draw aliens
+        context.fillStyle = "#ff00ff";
+        for (var i = 0; i < aliens.length; i++) {
+          context.fillRect(aliens[i].x, aliens[i].y, alienWidth, alienHeight);
+        }
+
+        // Draw score
+        context.fillStyle = "#ffffff";
+        context.font = "24px Arial";
+        context.fillText("Score: " + score, 10, 30);
+      }
+
+      // Handle key down event
+      function handleKeyDown(event) {
+        if (event.keyCode === 37) {
+          shipLeft = true;
+        }
+        if (event.keyCode === 39) {
+          shipRight = true;
+        }
+        if (event.keyCode === 32) {
+          fireBullet();
+        }
+      }
+
+      // Handle key up event
+      function handleKeyUp(event) {
+        if (event.keyCode === 37) {
+          shipLeft = false;
+        }
+        if (event.keyCode === 39) {
+          shipRight = false;
+        }
+      }
+
+      // Fire bullet
+      function fireBullet() {
+        if (bulletState === "ready") {
+          bulletX = shipX + shipWidth / 2 - bulletWidth / 2;
+          bulletY = shipY - bulletHeight;
+          bulletState = "fire";
+        }
+      }
+
+      // End the game
+      function endGame() {
+        clearInterval(gameInterval);
+        $(document).off("keydown", handleKeyDown);
+        $(document).off("keyup", handleKeyUp);
+        $("#game-over").html("Game Over! Your score is " + score);
+        $("#game-over").show();
+        $("#play-again-button").show();
+      }
+
+      // Reset the game
+      function resetGame() {
+        $("#game-container").show();
+        setupGame();
+      }
+    });
+  </script>
+</body>
+</html>
